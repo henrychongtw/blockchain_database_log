@@ -1,0 +1,10 @@
+{
+  "journal_id": "JE000001",
+	"entry_date" : "2016-11-06",
+	"create_time" : "2016-11-06 18:00:00",
+	"created_by": "Adam",
+	"post_status": "P",
+	"account_code" : "100000",
+	"amount" : 16453.24,
+	"dr_cr" : "C"
+}
