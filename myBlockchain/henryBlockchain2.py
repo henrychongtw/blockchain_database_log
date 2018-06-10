@@ -7,10 +7,6 @@ from uuid import uuid4
 import requests
 from flask import Flask, jsonify, request
 
-import sqlite3
-from json import dumps, loads
-
-
 class Blockchain(object):
     def __init__(self):
         self.chain = []
@@ -72,7 +68,7 @@ class Blockchain(object):
             return True
 
     def new_block(self, proof, previous_hash):
-        block = {'index' : len(self.chain) +1, 'timestamp':time(), 'transaction': self.current_transactions, 'proof': proof, 'previous_hash': previous_hash or self.hash(self.chain[-1]),
+        block = {'index' : len(self.chain) +1, 'timestamps':time(), 'transaction': self.current_transactions, 'proof': proof, 'previous_hash': previous_hash or self.hash(self.chain[-1]),
         }
 
         self.current_transactions = []
@@ -80,8 +76,8 @@ class Blockchain(object):
         self.chain.append(block)
         return block
 
-    def new_transaction(self, sender, recipient, amount):
-        self.current_transactions.append({'sender': sender,'recipient': recipient,'amount': amount,
+    def new_transaction(self, sender, recipient, amount, data):
+        self.current_transactions.append({'sender': sender,'recipient': recipient,'amount': amount, 'data': data
         })
 
         return self.last_block['index']+1
@@ -113,66 +109,7 @@ class Blockchain(object):
 
 
 
-    def construct():
-    	data = request.form['data']
-    		# print data
-    	data1 = loads(data)
-    	conn, cursor = database_connect()
-    	data1 = data_contruct_new(data1)
-    	data1['pre_hash'] = get_pre_hash(cursor)
-    	data1['nouce'] = call_nouce()
-    	data1['hash'] = call_hash(data1)
-    	conn.close()
-    	return jsonpify(data1)
 
-
-    def data_contruct_new(data1):
-    	nouce = {"nouce":u""}
-    	hash = {"hash":u""}
-    	pre_hash =  {"pre_hash":u""}
-    	data1.update(nouce)
-    	data1.update(hash)
-    	data1.update(pre_hash)
-    	return data1
-
-
-
-    def insert():
-        data = request.form['data']
-        data1 = loads(data)
-        conn, cursor = database_connect()
-        try:
-            cursor.execute("insert into journal()")
-            conn.commit()
-            return "Success"
-        except:
-            return "Failed"
-        conn.close()
-
-    # # def insert():
-    #   	data = request.form['data']
-    #     # data1 = loads(data)
-    #     # conn, cursor = database_connect()
-    #    	try:
-    #    		cursor.execute("insert into journal(journal_id, entry_date, create_time, created_by, post_status, account_code, amount, dr_cr, nouce, hash) values ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [ data1['journal_id'], data1['entry_date'], data1['create_time'], data1['created_by'], data1['post_status'], data1['account_code'], data1['amount'], data1['dr_cr'], data1['nouce'], data1['hash']])
-    #    		conn.commit()
-    #    		return "Success"
-    #    	except:
-    #    		return "Failed"
-    #    	conn.close()
-
-
-def database_connect():
-    conn = sqlite3.connect('Blockchain.db')
-    conn.row_factory = dict_factory
-    cursor = conn.cursor()
-    return conn, cursor
-
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
 
 
 
@@ -201,11 +138,11 @@ def mine():
 def new_transaction():
     values = request.get_json()
 
-    required = ['sender', 'recipient', 'amount']
+    required = ['sender', 'recipient', 'amount', 'data']
     if not all(k in values for k in required):
         return 'Missing values', 400
 
-    index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
+    index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'], values['data'])
 
     response = {'message': f'Transaction will be added to Block {index}'}
     return jsonify(response), 201
@@ -233,48 +170,13 @@ def register_nodes():
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
     replaced = blockchain.resolve_conflicts()
-    conn, cursor = database_connect()
 
     if replaced:
         response = {'message': 'Local chain was replaced', 'new_chain': blockchain.chain}
     else:
         response = {'message': 'Local chain is authoritative', 'chain': blockchain.chain}
 
-    count = cursor.execute("select count(*) from BLOCKS").fetchall()
-    print(count)
-    if count[0]['count(*)'] > 0:
-        last_row = cursor.execute("select * from BLOCKS_FULL where ID = (select MAX(ID) from BLOCKS_FULL)").fetchall()
-        tag = []
-        for i in last_row:
-            tag.append(i)
-            ID = tag[0]['ID']
-            index = tag[0]['INDEX_NO']
-    else:
-        ID = 0
-        index = 0
-
-    for i, data in enumerate(blockchain.chain) :
-        if i < ID:
-            continue
-        # elif ID == 0:
-        #     print(data)
-        #     cursor.execute("insert into BLOCKS_FULL(ID, INDEX_NO, PRE_HASH, PROOF, TIMESTAMP, AMOUNT, RECIPIENT, SENDER) values (?,?,?,?,?,?,?,?)", [i, data['index'],  data['previous_hash'], data['proof'], data['timestamp'], 0, "Nan", 0])
-        #     conn.commit()
-        #     print("Success")
-        else:
-            try:
-                print(data)
-                print("==========")
-                # print(data['transaction'][0]['sender'])
-                cursor.execute("insert into BLOCKS_FULL(ID, INDEX_NO, PRE_HASH, PROOF, TIMESTAMP, AMOUNT, RECIPIENT, SENDER) values (?,?,?,?,?,?,?,?)", [i, data['index'],  data['previous_hash'], data['proof'], data['timestamp'], data['transaction'][0]['amount'], data['transaction'][0]['recipient'], data['transaction'][0]['sender']])
-                conn.commit()
-                print("Success")
-            # return
-            except:
-                print("Failed")
-    conn.close()
     return jsonify(response), 200
-
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
